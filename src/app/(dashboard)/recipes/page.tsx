@@ -16,6 +16,7 @@ interface Recipe {
   category: "known" | "wishlist";
   time: string;
   type: string;
+  steps?: string[];
 }
 
 export default function RecipesPage() {
@@ -28,7 +29,7 @@ export default function RecipesPage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState<Omit<Recipe, "id">>({ name: "", category: "known", time: "", type: "Lunch" });
+  const [formData, setFormData] = useState<Omit<Recipe, "id">>({ name: "", category: "known", time: "", type: "Lunch", steps: [] });
 
   useEffect(() => {
     if (!user) return;
@@ -52,12 +53,35 @@ export default function RecipesPage() {
   const handleOpenModal = (recipe?: Recipe) => {
     if (recipe) {
       setEditingId(recipe.id);
-      setFormData({ name: recipe.name, category: recipe.category, time: recipe.time, type: recipe.type });
+      setFormData({ name: recipe.name, category: recipe.category, time: recipe.time, type: recipe.type, steps: recipe.steps || [] });
     } else {
       setEditingId(null);
-      setFormData({ name: "", category: activeTab, time: "", type: "Lunch" });
+      setFormData({ name: "", category: activeTab, time: "", type: "Lunch", steps: [] });
     }
     setIsModalOpen(true);
+  };
+
+  const handleStepCountChange = (count: number) => {
+    setFormData(prev => {
+      const currentSteps = prev.steps || [];
+      const newSteps = [...currentSteps];
+      if (count > currentSteps.length) {
+        for (let i = currentSteps.length; i < count; i++) {
+          newSteps.push("");
+        }
+      } else if (count < currentSteps.length && count >= 0) {
+        newSteps.splice(count);
+      }
+      return { ...prev, steps: newSteps };
+    });
+  };
+
+  const handleStepChange = (index: number, value: string) => {
+    setFormData(prev => {
+      const newSteps = [...(prev.steps || [])];
+      newSteps[index] = value;
+      return { ...prev, steps: newSteps };
+    });
   };
 
   const handleSave = async () => {
@@ -137,7 +161,11 @@ export default function RecipesPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredRecipes.map((recipe) => (
-            <Card key={recipe.id} className="p-0 overflow-hidden hover:shadow-soft-lg transition-all-smooth cursor-pointer group relative">
+            <Card 
+              key={recipe.id} 
+              className="p-0 overflow-hidden hover:shadow-soft-lg transition-all-smooth cursor-pointer group relative"
+              onClick={() => handleOpenModal(recipe)}
+            >
               <div className="absolute top-2 right-2 flex gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-sm rounded-lg p-1">
                 <button onClick={(e) => { e.stopPropagation(); handleOpenModal(recipe); }} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-md">
                   <Edit2 size={16} />
@@ -182,7 +210,7 @@ export default function RecipesPage() {
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md shadow-2xl">
+          <Card className="w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-semibold">{editingId ? 'Edit Recipe' : 'Add Recipe'}</h3>
               <button onClick={() => setIsModalOpen(false)} className="text-muted-foreground hover:bg-muted p-2 rounded-full">
@@ -230,8 +258,55 @@ export default function RecipesPage() {
                   <option value="wishlist">Wishlist To Learn</option>
                 </select>
               </div>
+
+              <div className="border-t border-border pt-4 mt-2">
+                <div className="flex justify-between items-center mb-3">
+                  <label className="text-sm font-medium text-foreground">Recipe Steps</label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Count:</span>
+                    <input 
+                      type="number" 
+                      min="0"
+                      className="w-16 h-8 rounded-lg border border-border bg-card px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      value={formData.steps?.length || 0}
+                      onChange={(e) => handleStepCountChange(parseInt(e.target.value) || 0)}
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  {formData.steps?.map((step, index) => (
+                    <div key={index} className="flex gap-2 items-start">
+                      <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold shrink-0 mt-2">
+                        {index + 1}
+                      </span>
+                      <textarea
+                        className="flex min-h-[60px] w-full rounded-xl border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+                        placeholder={`Step ${index + 1} instructions...`}
+                        value={step}
+                        onChange={(e) => handleStepChange(index, e.target.value)}
+                      />
+                      <button 
+                        onClick={() => handleStepCountChange((formData.steps?.length || 1) - 1)}
+                        className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-50 rounded-lg shrink-0 mt-1"
+                        title="Remove step"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ))}
+                  
+                  <Button 
+                    variant="outline" 
+                    className="w-full mt-2 border-dashed"
+                    onClick={() => handleStepCountChange((formData.steps?.length || 0) + 1)}
+                  >
+                    <Plus size={16} className="mr-2" /> Add Step
+                  </Button>
+                </div>
+              </div>
               
-              <div className="pt-4 flex justify-end gap-3">
+              <div className="pt-4 flex justify-end gap-3 sticky bottom-0 bg-card py-2 border-t border-border mt-4">
                 <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Cancel</Button>
                 <Button onClick={handleSave}>{editingId ? 'Save Changes' : 'Add Recipe'}</Button>
               </div>

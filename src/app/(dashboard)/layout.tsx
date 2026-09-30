@@ -61,7 +61,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <X size={20} />
               </button>
               <div className="h-full overflow-hidden">
-                <Sidebar />
+                <Sidebar className="flex" />
               </div>
             </motion.div>
           </motion.div>

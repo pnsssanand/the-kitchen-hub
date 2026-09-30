@@ -23,11 +23,11 @@ const navItems = [
   { name: "Profile", href: "/profile", icon: User },
 ];
 
-export function Sidebar() {
+export function Sidebar({ className }: { className?: string }) {
   const pathname = usePathname();
 
   return (
-    <aside className="w-64 bg-card h-screen hidden md:flex flex-col border-r border-border shadow-soft flex-shrink-0 relative z-10">
+    <aside className={`w-64 bg-card h-screen flex-col border-r border-border shadow-soft flex-shrink-0 relative z-10 ${className ?? 'hidden md:flex'}`}>
       <div className="p-6 flex items-center gap-3">
         <div className="w-8 h-8 bg-primary text-primary-foreground rounded-lg flex items-center justify-center">
           <ChefHat size={20} />
