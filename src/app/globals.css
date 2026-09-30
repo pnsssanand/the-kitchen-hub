@@ -1,26 +1,60 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #FAF9F6;
+  --foreground: #333333;
+  --card: #FFFFFF;
+  --card-foreground: #333333;
+  --primary: #6E9B71; /* Herbal green */
+  --primary-hover: #5A835D;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F0EAD6; /* Soft beige */
+  --secondary-foreground: #333333;
+  --muted: #E8E5DF;
+  --muted-foreground: #737373;
+  --border: #E8E5DF;
+  --ring: #6E9B71;
+  --radius: 1rem;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --radius-xl: var(--radius);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+}
+
+@layer utilities {
+  .shadow-soft {
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+  }
+  .shadow-soft-lg {
+    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.08);
+  }
+}
+
+/* Animations */
+@layer utilities {
+  .transition-all-smooth {
+    transition-property: all;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 300ms;
+  }
 }
