@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Plus, Search, BookOpen, Star, Clock, Edit2, Trash, X, Loader2 } from "lucide-react";
+import { Plus, Search, BookOpen, Star, Clock, Edit2, Trash, X, Loader2, Sparkles } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/context/AuthContext";
 import { db } from "@/lib/firebase";
@@ -17,6 +17,7 @@ interface Recipe {
   time: string;
   type: string;
   steps?: string[];
+  imageUrl?: string;
 }
 
 export default function RecipesPage() {
@@ -26,6 +27,7 @@ export default function RecipesPage() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [generatingImageId, setGeneratingImageId] = useState<string | null>(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -53,10 +55,10 @@ export default function RecipesPage() {
   const handleOpenModal = (recipe?: Recipe) => {
     if (recipe) {
       setEditingId(recipe.id);
-      setFormData({ name: recipe.name, category: recipe.category, time: recipe.time, type: recipe.type, steps: recipe.steps || [] });
+      setFormData({ name: recipe.name, category: recipe.category, time: recipe.time, type: recipe.type, steps: recipe.steps || [], imageUrl: recipe.imageUrl || "" });
     } else {
       setEditingId(null);
-      setFormData({ name: "", category: activeTab, time: "", type: "Lunch", steps: [] });
+      setFormData({ name: "", category: activeTab, time: "", type: "Lunch", steps: [], imageUrl: "" });
     }
     setIsModalOpen(true);
   };
@@ -117,6 +119,32 @@ export default function RecipesPage() {
     }
   };
 
+  const handleGenerateImage = async (recipe: Recipe, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user) return;
+    setGeneratingImageId(recipe.id);
+    try {
+      const res = await fetch("/api/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: recipe.name })
+      });
+      const data = await res.json();
+      if (res.ok && data.image) {
+        await updateDoc(doc(db, `users/${user.uid}/recipes`, recipe.id), {
+          imageUrl: data.image
+        });
+        toast.success("Image generated successfully!");
+      } else {
+        toast.error(data.error || "Failed to generate image");
+      }
+    } catch (error) {
+      toast.error("An error occurred while generating the image");
+    } finally {
+      setGeneratingImageId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -167,18 +195,35 @@ export default function RecipesPage() {
               onClick={() => handleOpenModal(recipe)}
             >
               <div className="absolute top-2 right-2 flex gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-sm rounded-lg p-1">
-                <button onClick={(e) => { e.stopPropagation(); handleOpenModal(recipe); }} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-md">
+                <button onClick={(e) => handleGenerateImage(recipe, e)} className="p-1.5 text-purple-500 hover:bg-purple-50 rounded-md" title="Generate AI Image">
+                  {generatingImageId === recipe.id ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); handleOpenModal(recipe); }} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-md" title="Edit">
                   <Edit2 size={16} />
                 </button>
-                <button onClick={(e) => handleDelete(recipe.id, e)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-md">
+                <button onClick={(e) => handleDelete(recipe.id, e)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-md" title="Delete">
                   <Trash size={16} />
                 </button>
               </div>
 
               <div className="h-40 bg-muted relative">
-                <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
-                  <BookOpen size={40} className="opacity-20" />
-                </div>
+                {recipe.imageUrl ? (
+                  <img src={recipe.imageUrl} alt={recipe.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground gap-3">
+                    <BookOpen size={40} className="opacity-20" />
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-sm h-8 px-3 text-xs z-10 border-dashed"
+                      onClick={(e) => handleGenerateImage(recipe, e)}
+                      disabled={generatingImageId === recipe.id}
+                    >
+                      {generatingImageId === recipe.id ? <Loader2 className="animate-spin mr-2" size={14} /> : <Sparkles className="mr-2" size={14} />}
+                      Generate Image
+                    </Button>
+                  </div>
+                )}
               </div>
               <div className="p-5">
                 <div className="flex justify-between items-start mb-2">

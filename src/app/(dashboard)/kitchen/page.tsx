@@ -15,12 +15,12 @@ interface KitchenItem {
   name: string;
   category: string;
   quantity: string;
-  status: "have" | "buy";
+  status: "have" | "buy" | "clothing" | "india";
 }
 
 export default function KitchenPage() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<"have" | "buy">("have");
+  const [activeTab, setActiveTab] = useState<"have" | "buy" | "clothing" | "india">("have");
 
   const [items, setItems] = useState<KitchenItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,12 +92,13 @@ export default function KitchenPage() {
     }
   };
 
-  const toggleStatus = async (id: string, currentStatus: "have" | "buy") => {
+  const changeStatus = async (id: string, newStatus: "have" | "buy" | "clothing" | "india") => {
     if (!user) return;
     try {
       await updateDoc(doc(db, `users/${user.uid}/kitchen`, id), {
-        status: currentStatus === "have" ? "buy" : "have"
+        status: newStatus
       });
+      toast.success("Item moved");
     } catch (error) {
       toast.error("Failed to update status");
     }
@@ -113,10 +114,10 @@ export default function KitchenPage() {
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4 justify-between">
-        <div className="flex bg-card p-1 rounded-xl border border-border w-full sm:w-fit">
+        <div className="flex bg-card p-1 rounded-xl border border-border w-full sm:w-fit overflow-x-auto hide-scrollbar">
           <button
             onClick={() => setActiveTab("have")}
-            className={`flex-1 sm:flex-none px-6 py-2 rounded-lg text-sm font-medium transition-all-smooth ${
+            className={`flex-1 sm:flex-none whitespace-nowrap px-6 py-2 rounded-lg text-sm font-medium transition-all-smooth ${
               activeTab === "have" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"
             }`}
           >
@@ -124,11 +125,27 @@ export default function KitchenPage() {
           </button>
           <button
             onClick={() => setActiveTab("buy")}
-            className={`flex-1 sm:flex-none px-6 py-2 rounded-lg text-sm font-medium transition-all-smooth ${
+            className={`flex-1 sm:flex-none whitespace-nowrap px-6 py-2 rounded-lg text-sm font-medium transition-all-smooth ${
               activeTab === "buy" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"
             }`}
           >
             Need To Buy
+          </button>
+          <button
+            onClick={() => setActiveTab("clothing")}
+            className={`flex-1 sm:flex-none whitespace-nowrap px-6 py-2 rounded-lg text-sm font-medium transition-all-smooth ${
+              activeTab === "clothing" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            Clothing Items
+          </button>
+          <button
+            onClick={() => setActiveTab("india")}
+            className={`flex-1 sm:flex-none whitespace-nowrap px-6 py-2 rounded-lg text-sm font-medium transition-all-smooth ${
+              activeTab === "india" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            India Items
           </button>
         </div>
 
@@ -149,10 +166,10 @@ export default function KitchenPage() {
           <div className="space-y-2">
             {filteredItems.map((item) => (
               <div key={item.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl hover:bg-muted/50 transition-colors border border-transparent hover:border-border group">
-                <div className="flex items-center gap-4 cursor-pointer" onClick={() => toggleStatus(item.id, item.status)}>
-                  <button className="text-muted-foreground hover:text-primary transition-colors">
+                <div className="flex items-center gap-4">
+                  <div className="text-muted-foreground">
                     {activeTab === "have" ? <CheckCircle2 size={24} className="text-primary" /> : <Circle size={24} />}
-                  </button>
+                  </div>
                   <div>
                     <h4 className="font-medium text-base">{item.name}</h4>
                     <p className="text-sm text-muted-foreground">{item.category}</p>
@@ -170,9 +187,16 @@ export default function KitchenPage() {
                     <Button variant="ghost" size="icon" onClick={() => handleDelete(item.id)} className="text-red-500 hover:text-red-600 hover:bg-red-50">
                       <Trash size={18} />
                     </Button>
-                    <Button variant="outline" size="sm" className="hidden sm:flex ml-2" onClick={() => toggleStatus(item.id, item.status)}>
-                      {activeTab === "have" ? "Move to Buy" : "I Have This"}
-                    </Button>
+                    <select
+                      className="hidden sm:flex ml-2 h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+                      value={item.status}
+                      onChange={(e) => changeStatus(item.id, e.target.value as "have" | "buy" | "clothing" | "india")}
+                    >
+                      <option value="have">I Have</option>
+                      <option value="buy">Need to Buy</option>
+                      <option value="clothing">Clothing Items</option>
+                      <option value="india">India Items</option>
+                    </select>
                   </div>
                 </div>
               </div>
@@ -235,10 +259,12 @@ export default function KitchenPage() {
                 <select 
                   className="flex h-12 w-full rounded-2xl border border-border bg-card px-4 text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   value={formData.status}
-                  onChange={(e) => setFormData({...formData, status: e.target.value as "have" | "buy"})}
+                  onChange={(e) => setFormData({...formData, status: e.target.value as "have" | "buy" | "clothing" | "india"})}
                 >
                   <option value="have">I Have This</option>
                   <option value="buy">Need to Buy</option>
+                  <option value="clothing">Clothing Items</option>
+                  <option value="india">India Items</option>
                 </select>
               </div>
               
