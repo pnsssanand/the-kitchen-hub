@@ -4,8 +4,9 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Edit2, Trash, X, Loader2 } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Edit2, Trash, X, Loader2, BookOpen } from "lucide-react";
 import { format, addDays, subDays } from "date-fns";
+import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { useAuth } from "@/context/AuthContext";
 import { db } from "@/lib/firebase";
@@ -21,11 +22,18 @@ interface Meal {
   date: string;
 }
 
+interface Recipe {
+  id: string;
+  name: string;
+}
+
 export default function SchedulePage() {
+  const router = useRouter();
   const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   
   const [meals, setMeals] = useState<Meal[]>([]);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -35,7 +43,7 @@ export default function SchedulePage() {
   useEffect(() => {
     if (!user) return;
     const q = query(collection(db, `users/${user.uid}/schedule`));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribeMeals = onSnapshot(q, (snapshot) => {
       const fetched = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
@@ -43,7 +51,20 @@ export default function SchedulePage() {
       setMeals(fetched);
       setLoading(false);
     });
-    return () => unsubscribe();
+
+    const qRecipes = query(collection(db, `users/${user.uid}/recipes`));
+    const unsubscribeRecipes = onSnapshot(qRecipes, (snapshot) => {
+      const fetched = snapshot.docs.map(doc => ({
+        id: doc.id,
+        name: doc.data().name
+      })) as Recipe[];
+      setRecipes(fetched);
+    });
+
+    return () => {
+      unsubscribeMeals();
+      unsubscribeRecipes();
+    };
   }, [user]);
 
   const formattedCurrentDate = format(currentDate, "yyyy-MM-dd");
@@ -167,7 +188,24 @@ export default function SchedulePage() {
                       </h4>
                       <p className="text-sm text-muted-foreground mt-1">{meal.desc}</p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 shrink-0">
+                      {recipes.find(r => r.name.toLowerCase().trim() === meal.name.toLowerCase().trim()) && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => {
+                            const recipeId = recipes.find(r => r.name.toLowerCase().trim() === meal.name.toLowerCase().trim())?.id;
+                            if (recipeId) {
+                              sessionStorage.setItem('viewRecipe', recipeId);
+                              router.push('/recipes');
+                            }
+                          }} 
+                          className="text-purple-500 hover:text-purple-600 hover:bg-purple-50"
+                          title="View Recipe"
+                        >
+                          <BookOpen size={18} />
+                        </Button>
+                      )}
                       <Button variant="ghost" size="icon" onClick={() => handleOpenModal(meal)} className="text-blue-500 hover:text-blue-600 hover:bg-blue-50">
                         <Edit2 size={18} />
                       </Button>

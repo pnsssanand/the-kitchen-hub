@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useRouter } from "next/navigation";
 import { 
-  Plus, Coffee, Sun, Moon, CheckCircle2, Circle, Droplet, Edit2, Trash, X, Settings2, Loader2
+  Plus, Coffee, Sun, Moon, CheckCircle2, Circle, Droplet, Edit2, Trash, X, Settings2, Loader2, BookOpen
 } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
@@ -34,6 +34,11 @@ interface BuyItem {
   status: "have" | "buy";
 }
 
+interface Recipe {
+  id: string;
+  name: string;
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const router = useRouter();
@@ -41,6 +46,7 @@ export default function DashboardPage() {
   
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [buyItems, setBuyItems] = useState<BuyItem[]>([]);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loadingMenu, setLoadingMenu] = useState(true);
   const [loadingBuy, setLoadingBuy] = useState(true);
 
@@ -92,7 +98,17 @@ export default function DashboardPage() {
       setLoadingBuy(false);
     });
 
-    return () => { unsubMenu(); unsubBuy(); };
+    // Fetch Recipes for cross-referencing
+    const qRecipes = query(collection(db, `users/${user.uid}/recipes`));
+    const unsubRecipes = onSnapshot(qRecipes, (snapshot) => {
+      const fetched = snapshot.docs.map(doc => ({
+        id: doc.id,
+        name: doc.data().name
+      })) as Recipe[];
+      setRecipes(fetched);
+    });
+
+    return () => { unsubMenu(); unsubBuy(); unsubRecipes(); };
   }, [user]);
 
   // Menu Handlers
@@ -245,7 +261,23 @@ export default function DashboardPage() {
                       <button onClick={() => toggleMenuComplete(item.id, item.completed)} className={`${item.completed ? 'text-primary' : 'text-muted-foreground hover:text-primary'} transition-transform`}>
                         {item.completed ? <CheckCircle2 size={24} /> : <Circle size={24} />}
                       </button>
-                      <div className="flex gap-1">
+                      <div className="flex gap-1 shrink-0">
+                        {recipes.find(r => r.name.toLowerCase().trim() === item.name.toLowerCase().trim()) && (
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const recipeId = recipes.find(r => r.name.toLowerCase().trim() === item.name.toLowerCase().trim())?.id;
+                              if (recipeId) {
+                                sessionStorage.setItem('viewRecipe', recipeId);
+                                router.push('/recipes');
+                              }
+                            }} 
+                            className="p-1 text-purple-500 hover:bg-purple-50 rounded-md"
+                            title="View Recipe"
+                          >
+                            <BookOpen size={16} />
+                          </button>
+                        )}
                         <button onClick={() => handleOpenMenuModal(item)} className="p-1 text-blue-500 hover:bg-blue-50 rounded-md">
                           <Edit2 size={16} />
                         </button>

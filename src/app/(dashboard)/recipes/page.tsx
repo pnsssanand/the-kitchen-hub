@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Plus, Search, BookOpen, Star, Clock, Edit2, Trash, X, Loader2, Sparkles } from "lucide-react";
+import { Plus, Search, BookOpen, Star, Clock, Edit2, Trash, X, Loader2, Sparkles, ShoppingCart, ArrowRightLeft } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/context/AuthContext";
 import { db } from "@/lib/firebase";
@@ -33,6 +33,10 @@ export default function RecipesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Omit<Recipe, "id">>({ name: "", category: "known", time: "", type: "Lunch", steps: [] });
 
+  const [isKiranaModalOpen, setIsKiranaModalOpen] = useState(false);
+  const [extractingKirana, setExtractingKirana] = useState(false);
+  const [extractedIngredients, setExtractedIngredients] = useState<{name: string, selected: boolean}[]>([]);
+
   useEffect(() => {
     if (!user) return;
     const q = query(collection(db, `users/${user.uid}/recipes`));
@@ -46,6 +50,19 @@ export default function RecipesPage() {
     });
     return () => unsubscribe();
   }, [user]);
+
+  useEffect(() => {
+    if (!loading && recipes.length > 0) {
+      const viewRecipeId = sessionStorage.getItem("viewRecipe");
+      if (viewRecipeId) {
+        const recipe = recipes.find(r => r.id === viewRecipeId);
+        if (recipe) {
+          handleOpenModal(recipe);
+          sessionStorage.removeItem("viewRecipe");
+        }
+      }
+    }
+  }, [loading, recipes]);
 
   const filteredRecipes = recipes.filter(r => 
     r.category === activeTab && 
@@ -109,13 +126,26 @@ export default function RecipesPage() {
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!user) return;
-    if (confirm("Are you sure you want to delete this recipe?")) {
-      try {
-        await deleteDoc(doc(db, `users/${user.uid}/recipes`, id));
-        toast.success("Recipe deleted");
-      } catch (error) {
-        toast.error("Failed to delete recipe");
-      }
+    try {
+      await deleteDoc(doc(db, `users/${user.uid}/recipes`, id));
+      toast.success("Recipe deleted");
+    } catch (error) {
+      toast.error("Failed to delete recipe");
+    }
+  };
+
+  const handleSwitchCategory = async (recipe: Recipe, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user) return;
+    
+    const newCategory = recipe.category === "known" ? "wishlist" : "known";
+    try {
+      await updateDoc(doc(db, `users/${user.uid}/recipes`, recipe.id), {
+        category: newCategory
+      });
+      toast.success(`Moved to ${newCategory === "known" ? "I Know How To Cook" : "Wishlist To Learn"}`);
+    } catch (error) {
+      toast.error("Failed to move recipe");
     }
   };
 
@@ -145,13 +175,79 @@ export default function RecipesPage() {
     }
   };
 
+  const handleExtractKirana = async () => {
+    const allSteps = recipes.reduce((acc, recipe) => {
+      if (recipe.steps && recipe.steps.length > 0) {
+        acc.push(...recipe.steps);
+      }
+      return acc;
+    }, [] as string[]);
+
+    if (allSteps.length === 0) {
+      toast.error("No recipe steps found to extract ingredients from");
+      return;
+    }
+
+    setExtractingKirana(true);
+    try {
+      const res = await fetch("/api/extract-ingredients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ steps: allSteps })
+      });
+      const data = await res.json();
+      if (res.ok && data.ingredients) {
+        setExtractedIngredients(data.ingredients.map((name: string) => ({ name, selected: true })));
+        setIsKiranaModalOpen(true);
+      } else {
+        toast.error(data.error || "Failed to extract ingredients");
+      }
+    } catch (error) {
+      toast.error("An error occurred during extraction");
+    } finally {
+      setExtractingKirana(false);
+    }
+  };
+
+  const handleSaveKirana = async () => {
+    if (!user) return;
+    const selectedIngredients = extractedIngredients.filter(i => i.selected);
+    if (selectedIngredients.length === 0) {
+      toast.error("No ingredients selected");
+      return;
+    }
+
+    try {
+      const promises = selectedIngredients.map(item => 
+        addDoc(collection(db, `users/${user.uid}/kitchen`), {
+          name: item.name,
+          category: "Pantry",
+          quantity: "1",
+          status: "buy"
+        })
+      );
+      
+      await Promise.all(promises);
+      toast.success(`${selectedIngredients.length} items added to Kitchen Essentials`);
+      setIsKiranaModalOpen(false);
+    } catch (error) {
+      toast.error("Failed to add items to Kitchen Essentials");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 className="text-2xl font-bold">My Recipes</h2>
-        <Button className="w-full sm:w-auto" onClick={() => handleOpenModal()}>
-          <Plus size={18} className="mr-2" /> Add Recipe
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Button variant="outline" className="w-full sm:w-auto border-dashed bg-card" onClick={handleExtractKirana} disabled={extractingKirana}>
+            {extractingKirana ? <Loader2 size={18} className="mr-2 animate-spin" /> : <ShoppingCart size={18} className="mr-2" />}
+            Necessary Kirana
+          </Button>
+          <Button className="w-full sm:w-auto" onClick={() => handleOpenModal()}>
+            <Plus size={18} className="mr-2" /> Add Recipe
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4 justify-between">
@@ -194,7 +290,10 @@ export default function RecipesPage() {
               className="p-0 overflow-hidden hover:shadow-soft-lg transition-all-smooth cursor-pointer group relative"
               onClick={() => handleOpenModal(recipe)}
             >
-              <div className="absolute top-2 right-2 flex gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-sm rounded-lg p-1">
+              <div className="absolute top-2 right-2 flex gap-1 z-10 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-sm rounded-lg p-1">
+                <button onClick={(e) => handleSwitchCategory(recipe, e)} className="p-1.5 text-green-500 hover:bg-green-50 rounded-md" title="Switch Category">
+                  <ArrowRightLeft size={16} />
+                </button>
                 <button onClick={(e) => handleGenerateImage(recipe, e)} className="p-1.5 text-purple-500 hover:bg-purple-50 rounded-md" title="Generate AI Image">
                   {generatingImageId === recipe.id ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
                 </button>
@@ -215,7 +314,7 @@ export default function RecipesPage() {
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      className="opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-sm h-8 px-3 text-xs z-10 border-dashed"
+                      className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-sm h-8 px-3 text-xs z-10 border-dashed"
                       onClick={(e) => handleGenerateImage(recipe, e)}
                       disabled={generatingImageId === recipe.id}
                     >
@@ -355,6 +454,52 @@ export default function RecipesPage() {
                 <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Cancel</Button>
                 <Button onClick={handleSave}>{editingId ? 'Save Changes' : 'Add Recipe'}</Button>
               </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {isKiranaModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <Card className="w-full max-w-md shadow-2xl max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center mb-6 shrink-0">
+              <h3 className="text-xl font-semibold">Necessary Kirana</h3>
+              <button onClick={() => setIsKiranaModalOpen(false)} className="text-muted-foreground hover:bg-muted p-2 rounded-full">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <p className="text-sm text-muted-foreground mb-4 shrink-0">
+              Select the ingredients you want to add to your Kitchen Essentials (Need to Buy list).
+            </p>
+            
+            <div className="overflow-y-auto space-y-2 mb-4 flex-1 pr-2">
+              {extractedIngredients.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">No specific ingredients found.</p>
+              ) : (
+                extractedIngredients.map((item, idx) => (
+                  <label key={idx} className="flex items-center gap-3 p-3 rounded-xl border border-border hover:bg-muted/50 cursor-pointer transition-colors">
+                    <input 
+                      type="checkbox" 
+                      checked={item.selected}
+                      onChange={(e) => {
+                        const newItems = [...extractedIngredients];
+                        newItems[idx].selected = e.target.checked;
+                        setExtractedIngredients(newItems);
+                      }}
+                      className="w-5 h-5 rounded border-border text-primary focus:ring-primary"
+                    />
+                    <span className="font-medium text-foreground">{item.name}</span>
+                  </label>
+                ))
+              )}
+            </div>
+            
+            <div className="pt-4 flex justify-end gap-3 shrink-0 border-t border-border mt-auto">
+              <Button variant="ghost" onClick={() => setIsKiranaModalOpen(false)}>Cancel</Button>
+              <Button onClick={handleSaveKirana} disabled={extractedIngredients.filter(i => i.selected).length === 0}>
+                Add to List
+              </Button>
             </div>
           </Card>
         </div>

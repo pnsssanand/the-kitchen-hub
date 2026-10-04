@@ -8,11 +8,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
     }
 
-    // Note: The provided Gemini API key returns a "Quota: 0" error or requires Vertex AI 
-    // for the image generation models on the free tier. 
-    // As a fallback to ensure the feature works, we are using a free AI image generator API.
-    const encodedPrompt = encodeURIComponent(`Delicious, appetizing, professional food photography of ${prompt}. Studio lighting, high resolution, soft background.`);
-    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=800&height=800&nologo=true`;
+    // Note: The provided API key can be configured in .env.local if needed.
+    // For now we continue to use a free AI image generator API to ensure it always works.
+    const seed = Math.floor(Math.random() * 1000000);
+    const encodedPrompt = encodeURIComponent(`A close up, high quality, photorealistic food photography shot of the authentic Indian Andhra style dish: ${prompt}. Traditional Andhra cuisine style, spicy, rich red chili and spices, no text, no menus, just the food item itself served traditionally.`);
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=800&height=800&nologo=true&seed=${seed}`;
     
     const response = await fetch(imageUrl);
     
