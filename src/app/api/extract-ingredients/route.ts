@@ -35,7 +35,7 @@ ${steps.join("\n")}`;
       } catch (geminiError) {
         console.error("Gemini failed, falling back to free API:", geminiError);
         // Fallback below
-        apiKey = null;
+        apiKey = undefined;
       }
     }
 
